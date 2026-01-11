@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="iPhone">
+
+    <title>iPhone 13 Pro Max</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Fixed Wallpaper - Ensures mountains.jpg is always visible */
+        .wallpaper {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: url('mountains.jpg') no-repeat center center;
+            background-size: cover;
+            z-index: 1;
+        }
+
+        /* Overlay for screens */
+        .screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Lock Screen Top Area */
+        .lock-header {
+            margin-top: 80px;
+            text-align: center;
+        }
+
+        #clock {
+            font-size: 88px;
+            font-weight: 200;
+            letter-spacing: -2px;
+            transition: opacity 0.3s ease;
+        }
+
+        #date {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: -10px;
+        }
+
+        /* Keypad Area - Fixed at Bottom */
+        #keypad-screen {
+            display: none;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+        }
+
+        .keypad-container {
+            position: absolute;
+            bottom: 60px; /* Locked position */
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .dots {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+            padding: 20px; /* Big hit area for peek */
+        }
+
+        .dot {
+            width: 13px; height: 13px;
+            border: 1.5px solid #fff;
+            border-radius: 50%;
+        }
+
+        .dot.filled { background: #fff; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 85px);
+            gap: 20px;
+        }
+
+        .key {
+            width: 80px; height: 80px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .key:active { background: rgba(255,255,255,0.4); }
+
+        /* Home Screen */
+        #home-screen {
+            display: none;
+            padding: 60px 20px;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+        }
+
+        .app { text-align: center; }
+        .app img { width: 62px; height: 62px; border-radius: 15px; }
+        .app div { font-size: 12px; margin-top: 5px; }
+
+        .dock {
+            position: absolute;
+            bottom: 20px; left: 15px; right: 15px;
+            height: 95px;
+            border-radius: 35px;
+            overflow: hidden;
+        }
+        .dock img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Animations */
+        .shake { animation: shake 0.2s ease-in-out 2; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .fade-text { transition: opacity 0.3s ease; }
+    </style>
+</head>
+<body>
+
+    <div class="wallpaper"></div>
+
+    <div id="lock-screen" class="screen" onclick="openKeypad()">
+        <div class="lock-header">
+            <div id="clock">12:00</div>
+            <div id="date">Monday, 1 January</div>
+        </div>
+        <div style="position:absolute; bottom:40px; width:100%; text-align:center; font-weight:600;">Swipe up to unlock</div>
+    </div>
+
+    <div id="keypad-screen" class="screen">
+        <div class="lock-header">
+            <div id="peek-clock" class="fade-text">12:00</div>
+            <div style="font-size:18px; margin-top:10px;">Enter Passcode</div>
+        </div>
+
+        <div class="keypad-container">
+            <div class="dots" id="dot-trigger">
+                <div class="dot"></div><div class="dot"></div>
+                <div class="dot"></div><div class="dot"></div>
+            </div>
+
+            <div class="grid">
+                <div class="key" onclick="typeKey('1')">1</div>
+                <div class="key" onclick="typeKey('2')">2</div>
+                <div class="key" onclick="typeKey('3')">3</div>
+                <div class="key" onclick="typeKey('4')">4</div>
+                <div class="key" onclick="typeKey('5')">5</div>
+                <div class="key" onclick="typeKey('6')">6</div>
+                <div class="key" onclick="typeKey('7')">7</div>
+                <div class="key" onclick="typeKey('8')">8</div>
+                <div class="key" onclick="typeKey('9')">9</div>
+                <div></div>
+                <div class="key" onclick="typeKey('0')">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="home-screen" class="screen">
+        <div class="app-grid">
+            <div class="app"><img src="pic1.WEBP"><div>Clock</div></div>
+            <div class="app"><img src="pic2.WEBP"><div>iTunes</div></div>
+            <div class="app"><img src="pic3.WEBP"><div>Notes</div></div>
+            <div class="app"><img src="pic4.WEBP"><div>Safari</div></div>
+        </div>
+        <div class="dock">
+            <img src="pic5.jpg">
+        </div>
+    </div>
+
+    <script>
+        let entered = "";
+        let lastPass = "0000";
+        let lastTime = 0;
+        let pauses = [];
+        let pTimer;
+
+        function updateClock() {
+            const now = new Date();
+            const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            
+            let h = now.getHours() % 12 || 12;
+            let m = now.getMinutes().toString().padStart(2, '0');
+            const timeStr = `${h}:${m}`;
+
+            if (!document.body.classList.contains('is-peeking')) {
+                document.getElementById('clock').innerText = timeStr;
+                document.getElementById('peek-clock').innerText = timeStr;
+            }
+            document.getElementById('date').innerText = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]}`;
+            requestAnimationFrame(updateClock);
+        }
+        updateClock();
+
+        function openKeypad() {
+            document.getElementById('lock-screen').style.transform = 'translateY(-100%)';
+            document.getElementById('keypad-screen').style.display = 'block';
+        }
+
+        function typeKey(n) {
+            const now = Date.now();
+            if (entered.length > 0) pauses.push((now - lastTime) / 1000);
+            lastTime = now;
+            entered += n;
+            
+            const ds = document.querySelectorAll('.dot');
+            ds.forEach((d, i) => d.classList.toggle('filled', i < entered.length));
+
+            if (entered.length === 4) {
+                setTimeout(validate, 300);
+            }
+        }
+
+        function validate() {
+            // Mode B: Unlock if ALL pauses between digits are > 5 seconds
+            if (pauses.length === 3 && pauses.every(p => p > 5)) {
+                document.getElementById('keypad-screen').style.display = 'none';
+                document.getElementById('home-screen').style.display = 'block';
+                document.querySelector('.wallpaper').style.filter = 'none';
+            } else {
+                // Mode A: Fake Fail
+                lastPass = entered;
+                document.querySelector('.keypad-container').classList.add('shake');
+                setTimeout(() => {
+                    document.querySelector('.keypad-container').classList.remove('shake');
+                    entered = ""; pauses = [];
+                    document.querySelectorAll('.dot').forEach(d => d.classList.remove('filled'));
+                }, 400);
+            }
+        }
+
+        // Peek Logic
+        const trig = document.getElementById('dot-trigger');
+        const clockLabel = document.getElementById('peek-clock');
+
+        trig.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            pTimer = setTimeout(() => {
+                document.body.classList.add('is-peeking');
+                clockLabel.style.opacity = '0';
+                setTimeout(() => {
+                    clockLabel.innerText = lastPass.slice(0,2) + ":" + lastPass.slice(2);
+                    clockLabel.style.opacity = '1';
+                }, 150);
+            }, 500);
+        });
+
+        trig.addEventListener('touchend', () => {
+            clearTimeout(pTimer);
+            document.body.classList.remove('is-peeking');
+            clockLabel.style.opacity = '1';
+        });
+
+    </script>
+</body>
+</html>
