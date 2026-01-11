@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>System</title>
+    <style>
+        :root { --ios-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", Helvetica, Arial, sans-serif; }
+        
+        /* PREVENT GLITCHING */
+        * { 
+            user-select: none; 
+            -webkit-tap-highlight-color: transparent; 
+            box-sizing: border-box; 
+            touch-action: none; /* Disables browser scrolling/zooming */
+        }
+
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: #000; font-family: var(--ios-font);
+            position: fixed; /* Keeps the app locked in place */
+        }
+
+        .screen {
+            position: absolute; width: 100%; height: 100%;
+            background: url('mountains.jpg') no-repeat center center;
+            background-size: cover; display: none;
+            padding-top: env(safe-area-inset-top);
+        }
+
+        /* Lock Screen Content */
+        #lock-screen { display: flex; flex-direction: column; align-items: center; color: white; z-index: 10; }
+        
+        #time-area { 
+            margin-top: 50px; text-align: center; height: 160px; 
+            transition: transform 0.5s ease, opacity 0.5s;
+        }
+        #lock-time { font-size: 82px; font-weight: 200; letter-spacing: -2px; }
+        #lock-date { font-size: 22px; margin-top: -8px; font-weight: 400; }
+
+        /* Keypad Slide-Up Animation */
+        #keypad-overlay {
+            position: absolute; 
+            bottom: -100%; /* Start off-screen */
+            width: 100%; height: 100%; /* Full height to allow smooth slide */
+            background: rgba(0, 0, 0, 0.2); 
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center;
+            padding-bottom: 50px;
+        }
+
+        /* This class triggers the move */
+        .show-keypad #keypad-overlay { transform: translateY(-100%); }
+        .show-keypad #time-area { transform: translateY(-30px); opacity: 0.5; }
+
+        .dot-container { display: flex; gap: 20px; margin-bottom: 40px; }
+        .dot { width: 13px; height: 13px; border: 1.5px solid white; border-radius: 50%; }
+        .dot.filled { background: white; }
+
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px 28px; }
+        .key {
+            width: 78px; height: 78px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15); color: white;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 32px; font-weight: 400;
+        }
+        .key:active { background: rgba(255, 255, 255, 0.4); }
+
+        /* Home Screen */
+        #home-screen { z-index: 5; }
+        .app-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            padding: 40px 25px; gap: 28px 18px;
+        }
+        .app-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .app-item img { width: 62px; height: 62px; border-radius: 14px; }
+        .app-item span { color: white; font-size: 11px; font-weight: 500; }
+
+        #dock { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; padding: 0 15px; }
+        #dock img { width: 100%; border-radius: 28px; }
+
+        .shake { animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-12px);} 75% {transform: translateX(12px);} }
+    </style>
+</head>
+<body>
+
+<div id="lock-screen" class="screen" style="display: flex;">
+    <div id="time-area">
+        <div id="lock-time">00:00</div>
+        <div id="lock-date">Monday, June 5</div>
+    </div>
+
+    <div id="keypad-overlay">
+        <div class="dot-container" id="peek-trigger">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <div class="keypad" id="numpad"></div>
+    </div>
+</div>
+
+<div id="home-screen" class="screen">
+    <div class="app-grid">
+        <div class="app-item"><img src="pic1.WEBP"><span>Clock</span></div>
+        <div class="app-item"><img src="pic2.WEBP"><span>iTunes</span></div>
+        <div class="app-item"><img src="pic3.WEBP"><span>Notes</span></div>
+        <div class="app-item"><img src="pic4.WEBP"><span>Safari</span></div>
+    </div>
+    <div id="dock"><img src="pic5.jpg"></div>
+</div>
+
+<script>
+    let code = "";
+    let lastTapTime = 0;
+    let timingValid = true; 
+    let startY = 0;
+
+    function updateClock() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\s[AP]M/, '');
+        document.getElementById('lock-time').innerText = timeStr;
+        document.getElementById('lock-date').innerText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // SWIPE UP DETECTION (No more glitching)
+    document.addEventListener('touchstart', e => { startY = e.touches[0].pageY; }, false);
+    document.addEventListener('touchend', e => {
+        let endY = e.changedTouches[0].pageY;
+        if (startY - endY > 50) { // If swiped up more than 50px
+            document.getElementById('lock-screen').classList.add('show-keypad');
+        }
+    }, false);
+
+    function tapKey(num) {
+        const now = Date.now();
+        if (code.length > 0) {
+            const gap = (now - lastTapTime) / 1000;
+            if (gap < 5) timingValid = false; 
+        }
+        code += num;
+        lastTapTime = now;
+        renderDots();
+        if (code.length === 4) {
+            setTimeout(() => {
+                if (timingValid) {
+                    document.getElementById('lock-screen').style.display = 'none';
+                    document.getElementById('home-screen').style.display = 'block';
+                } else {
+                    document.getElementById('keypad-overlay').classList.add('shake');
+                    setTimeout(() => {
+                        document.getElementById('keypad-overlay').classList.remove('shake');
+                        code = ""; timingValid = true; renderDots();
+                    }, 400);
+                }
+            }, 300);
+        }
+    }
+
+    function renderDots() {
+        const dots = document.querySelectorAll('.dot');
+        dots.forEach((d, i) => d.classList.toggle('filled', i < code.length));
+    }
+
+    // PEEK TRIGGER
+    const trigger = document.getElementById('peek-trigger');
+    let peekTimer;
+    trigger.addEventListener('touchstart', () => {
+        peekTimer = setTimeout(() => {
+            if (code.length > 0) {
+                document.getElementById('lock-time').innerText = code.length >= 4 ? code.slice(0,2)+":"+code.slice(2,4) : code;
+            }
+        }, 500);
+    });
+    trigger.addEventListener('touchend', () => { clearTimeout(peekTimer); updateClock(); });
+
+    // Build Keypad
+    const pad = document.getElementById('numpad');
+    [1,2,3,4,5,6,7,8,9,null,0,null].forEach(n => {
+        const k = document.createElement('div');
+        k.className = 'key';
+        if (n !== null) {
+            k.innerText = n;
+            k.onclick = (e) => { e.stopPropagation(); tapKey(n); };
+        } else { k.style.background = "transparent"; }
+        pad.appendChild(k);
+    });
+</script>
+</body>
+</html>
