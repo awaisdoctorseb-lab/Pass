@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+
+<!-- IMPORTANT FOR iOS FULLSCREEN -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<title>iOS Lock</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  -webkit-user-select:none;
+  user-select:none;
+}
+
+html, body{
+  width:100%;
+  height:100%;
+  background:black;
+  overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+}
+
+/* MAIN APP */
+#app{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100vw;
+  height:100vh;
+  background:url("mountains.jpg") center/cover no-repeat;
+}
+
+/* BLUR OVERLAY */
+#app.blurred::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  backdrop-filter:blur(18px);
+  background:rgba(0,0,0,.25);
+  z-index:1;
+}
+
+/* LOCK SCREEN */
+#lockScreen{
+  position:absolute;
+  inset:0;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  color:white;
+  z-index:2;
+  padding-top:env(safe-area-inset-top);
+}
+
+#time{
+  font-size:80px;
+  font-weight:200;
+}
+
+/* PASSCODE */
+#passcodeScreen{
+  position:absolute;
+  inset:0;
+  display:none;
+  color:white;
+  z-index:2;
+  padding-top:env(safe-area-inset-top);
+}
+
+#dots{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  margin-top:120px;
+}
+
+.dot{
+  width:12px;
+  height:12px;
+  border-radius:50%;
+  border:1px solid white;
+}
+.dot.filled{background:white}
+
+#keypad{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+  padding:40px;
+}
+
+.key{
+  text-align:center;
+  font-size:28px;
+  padding:20px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.6);
+}
+
+/* HOME SCREEN */
+#home{
+  position:absolute;
+  inset:0;
+  display:none;
+  background:url("mountains.jpg") center/cover no-repeat;
+  z-index:2;
+  padding-top:env(safe-area-inset-top);
+}
+
+#icons{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:22px;
+  padding:40px;
+}
+
+.icon img{
+  width:60px;
+  display:block;
+  margin:auto;
+}
+
+#dock{
+  position:absolute;
+  bottom:calc(20px + env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  width:90%;
+}
+
+/* NOTES */
+#notes{
+  position:absolute;
+  inset:0;
+  display:none;
+  flex-direction:column;
+  background:#f7f7f7;
+  z-index:3;
+  padding-top:env(safe-area-inset-top);
+}
+
+#notesHeader{
+  padding:14px;
+  background:#eee;
+  font-weight:bold;
+}
+
+#notesArea{
+  flex:1;
+  padding:16px;
+  font-size:18px;
+  outline:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+  <div id="lockScreen">
+    <div id="time"></div>
+  </div>
+
+  <div id="passcodeScreen">
+    <div id="dots"></div>
+    <div id="keypad"></div>
+  </div>
+
+  <div id="home">
+    <div id="icons">
+      <div class="icon"><img src="pic1.WEBP"></div>
+      <div class="icon"><img src="pic2.WEBP"></div>
+      <div class="icon" id="notesIcon"><img src="pic3.WEBP"></div>
+      <div class="icon"><img src="pic4.WEBP"></div>
+    </div>
+    <img id="dock" src="pic5.jpg">
+  </div>
+
+  <div id="notes">
+    <div id="notesHeader">← Notes</div>
+    <div id="notesArea" contenteditable="true"></div>
+  </div>
+
+</div>
+
+<script>
+/* DOM */
+const app = document.getElementById("app");
+const lockScreen = document.getElementById("lockScreen");
+const passcodeScreen = document.getElementById("passcodeScreen");
+const home = document.getElementById("home");
+const notes = document.getElementById("notes");
+const timeEl = document.getElementById("time");
+const dots = document.getElementById("dots");
+const keypad = document.getElementById("keypad");
+const notesArea = document.getElementById("notesArea");
+
+/* CLOCK */
+function updateTime(){
+  const d=new Date();
+  let h=d.getHours()%12||12;
+  let m=String(d.getMinutes()).padStart(2,"0");
+  timeEl.textContent=`${h}:${m}`;
+}
+setInterval(updateTime,1000);
+updateTime();
+
+/* SWIPE UP */
+let startY=0;
+document.addEventListener("touchstart",e=>{
+  startY=e.touches[0].clientY;
+});
+document.addEventListener("touchend",e=>{
+  if(startY-e.changedTouches[0].clientY>60){
+    app.classList.add("blurred");
+    lockScreen.style.display="none";
+    passcodeScreen.style.display="block";
+  }
+});
+
+/* PASSCODE */
+let input=[],times=[];
+for(let i=0;i<4;i++){
+  const d=document.createElement("div");
+  d.className="dot";
+  dots.appendChild(d);
+}
+
+for(let i=1;i<=9;i++)addKey(i);
+addKey(0);
+
+function addKey(n){
+  const k=document.createElement("div");
+  k.className="key";
+  k.textContent=n;
+  k.onclick=()=>press(n);
+  keypad.appendChild(k);
+}
+
+function press(n){
+  if(input.length>=4)return;
+  input.push(n);
+  times.push(Date.now());
+  dots.children[input.length-1].classList.add("filled");
+  if(input.length===4)check();
+}
+
+function check(){
+  let ok=true;
+  for(let i=1;i<times.length;i++){
+    if(times[i]-times[i-1]<4000)ok=false;
+  }
+  setTimeout(()=>{
+    if(ok)unlock();
+    reset();
+  },300);
+}
+
+function reset(){
+  input=[];times=[];
+  [...dots.children].forEach(d=>d.classList.remove("filled"));
+}
+
+/* UNLOCK */
+function unlock(){
+  app.classList.remove("blurred");
+  passcodeScreen.style.display="none";
+  home.style.display="block";
+}
+
+/* NOTES */
+notesArea.textContent=localStorage.getItem("notes")||"";
+notesArea.oninput=()=>localStorage.setItem("notes",notesArea.textContent);
+document.getElementById("notesIcon").onclick=()=>notes.style.display="flex";
+document.getElementById("notesHeader").onclick=()=>notes.style.display="none";
+</script>
+
+</body>
+</html>
