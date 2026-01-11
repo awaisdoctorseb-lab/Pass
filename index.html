@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fake Notes Receiver</title>
+    <style>
+        :root {
+            --bg-color: #000;
+            --text-color: #fff;
+            --keypad-bg: #1c1c1e;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Fixed Header to prevent shifting */
+        .status-bar {
+            height: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-top: 60px;
+        }
+
+        #clock {
+            font-size: 72px;
+            font-weight: 200;
+            font-variant-numeric: tabular-nums;
+            min-width: 250px;
+            text-align: center;
+            letter-spacing: -2px;
+        }
+
+        /* Password Dots */
+        .dots-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            height: 40px; /* Large hit area for the 0.5s hold */
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border: 1.5px solid #fff;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+
+        .dot.active { background-color: #fff; }
+        .dot.wrong { background-color: #ff3b30; border-color: #ff3b30; }
+
+        /* Keypad Layout */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 280px;
+            margin: 40px auto 0;
+        }
+
+        .key {
+            width: 75px;
+            height: 75px;
+            background-color: var(--keypad-bg);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+        }
+
+        .key:active { background-color: #3a3a3c; }
+
+        /* Home Screen */
+        #home-screen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(180deg, #2c3e50 0%, #000 100%);
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 25px;
+            padding: 40px 25px;
+        }
+
+        .app-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 14px;
+            margin: 0 auto;
+        }
+
+        .dock {
+            position: absolute;
+            bottom: 25px;
+            left: 15px;
+            right: 15px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.24);
+            backdrop-filter: blur(20px);
+            border-radius: 35px;
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+        .shake { animation: shake 0.15s ease-in-out 0s 2; }
+    </style>
+</head>
+<body>
+
+    <div id="lock-screen">
+        <div class="status-bar">
+            <div id="clock">12:00</div>
+            <div class="dots-container" id="dots-trigger">
+                <div class="dot"></div><div class="dot"></div>
+                <div class="dot"></div><div class="dot"></div>
+            </div>
+        </div>
+
+        <div class="keypad">
+            <div class="key" onclick="pressKey('1')">1</div>
+            <div class="key" onclick="pressKey('2')">2</div>
+            <div class="key" onclick="pressKey('3')">3</div>
+            <div class="key" onclick="pressKey('4')">4</div>
+            <div class="key" onclick="pressKey('5')">5</div>
+            <div class="key" onclick="pressKey('6')">6</div>
+            <div class="key" onclick="pressKey('7')">7</div>
+            <div class="key" onclick="pressKey('8')">8</div>
+            <div class="key" onclick="pressKey('9')">9</div>
+            <div class="key" style="visibility:hidden"></div>
+            <div class="key" onclick="pressKey('0')">0</div>
+        </div>
+    </div>
+
+    <div id="home-screen">
+        <div class="app-grid">
+            <div class="app-icon" style="background: #FF9500;"></div> <div class="app-icon" style="background: #5856D6;"></div> <div class="app-icon" style="background: #4CD964;"></div> <div class="app-icon" style="background: #FF3B30;"></div> </div>
+        <div class="dock">
+            <div class="app-icon" style="width:55px; height:55px;"></div>
+            <div class="app-icon" style="width:55px; height:55px;"></div>
+            <div class="app-icon" style="width:55px; height:55px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentInput = "";
+        let lastFullPassword = "0000";
+        let lastKeyTime = 0;
+        let pauses = [];
+        let peekTimer;
+
+        // 12-Hour Clock Logic
+        function updateClock() {
+            if (!document.body.classList.contains('peeking')) {
+                const now = new Date();
+                let hours = now.getHours();
+                const minutes = now.getMinutes().toString().padStart(2, '0');
+                hours = hours % 12 || 12; // Convert 0 to 12
+                document.getElementById('clock').innerText = `${hours}:${minutes}`;
+            }
+            requestAnimationFrame(updateClock);
+        }
+        updateClock();
+
+        function pressKey(num) {
+            const now = Date.now();
+            if (currentInput.length > 0) {
+                pauses.push((now - lastKeyTime) / 1000);
+            }
+            lastKeyTime = now;
+            currentInput += num;
+            updateDots();
+
+            if (currentInput.length === 4) {
+                setTimeout(validate, 250);
+            }
+        }
+
+        function updateDots() {
+            const dots = document.querySelectorAll('.dot');
+            dots.forEach((dot, i) => {
+                dot.classList.toggle('active', i < currentInput.length);
+            });
+        }
+
+        function validate() {
+            // MODE B: Successful Entry (Pauses: >4s, >4s, >5s)
+            if (pauses[0] > 4 && pauses[1] > 4 && pauses[2] > 5) {
+                document.getElementById('lock-screen').style.display = 'none';
+                document.getElementById('home-screen').style.display = 'block';
+            } else {
+                // MODE A: Incorrect Feedback
+                lastFullPassword = currentInput;
+                const container = document.getElementById('dots-trigger');
+                container.classList.add('shake');
+                document.querySelectorAll('.dot').forEach(d => d.classList.add('wrong'));
+
+                setTimeout(() => {
+                    container.classList.remove('shake');
+                    document.querySelectorAll('.dot').forEach(d => {
+                        d.classList.remove('wrong', 'active');
+                    });
+                    currentInput = "";
+                    pauses = [];
+                }, 500);
+            }
+        }
+
+        // The "Peek" Secret (Hold Dots for 0.5s)
+        const trigger = document.getElementById('dots-trigger');
+        
+        function startPeek() {
+            peekTimer = setTimeout(() => {
+                document.body.classList.add('peeking');
+                // Formats "1234" to "12:34"
+                const peekVal = lastFullPassword.slice(0, 2) + ":" + lastFullPassword.slice(2);
+                document.getElementById('clock').innerText = peekVal;
+            }, 500); 
+        }
+
+        function stopPeek() {
+            clearTimeout(peekTimer);
+            document.body.classList.remove('peeking');
+        }
+
+        trigger.addEventListener('mousedown', startPeek);
+        trigger.addEventListener('mouseup', stopPeek);
+        trigger.addEventListener('touchstart', (e) => { e.preventDefault(); startPeek(); });
+        trigger.addEventListener('touchend', stopPeek);
+    </script>
+</body>
+</html>
